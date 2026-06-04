@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\studentmodel;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 class StudentController extends Controller
 {
@@ -16,8 +16,8 @@ class StudentController extends Controller
         $students = Schema::hasTable('student')
             ? studentmodel::query()
                 ->when($search !== '', function ($query) use ($search) {
-                    $query->where(function ($nestedQuery) use ($search) {
-                        $nestedQuery->where('student_id', 'like', "%{$search}%")
+                    $query->where(function ($innerQuery) use ($search) {
+                        $innerQuery->where('student_id', 'like', "%{$search}%")
                             ->orWhere('f_name', 'like', "%{$search}%")
                             ->orWhere('l_name', 'like', "%{$search}%")
                             ->orWhere('email', 'like', "%{$search}%")
@@ -27,11 +27,13 @@ class StudentController extends Controller
                             ->orWhere('year', 'like', "%{$search}%");
                     });
                 })
-                ->latest()
+                ->latest('id')
                 ->get()
             : collect();
 
-        return view('student', compact('students', 'search'));
+        $studentCount = Schema::hasTable('student') ? studentmodel::count() : 0;
+
+        return view('student', compact('students', 'studentCount', 'search'));
     }
 
     public function store(Request $request)
@@ -41,15 +43,33 @@ class StudentController extends Controller
 
         studentmodel::create($validated);
 
-        return redirect()->route('student.page')->with('success', 'Student added successfully.');
+        return redirect()->route('student.index')->with('success', 'Student added successfully.');
     }
 
-    public function edit(string $id)
+    public function edit(Request $request, string $id)
     {
         $editStudent = studentmodel::findOrFail($id);
-        $students = studentmodel::all();
+        $search = trim((string) $request->query('search', ''));
 
-        return view('student', compact('students', 'editStudent'));
+        $students = studentmodel::query()
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($innerQuery) use ($search) {
+                    $innerQuery->where('student_id', 'like', "%{$search}%")
+                        ->orWhere('f_name', 'like', "%{$search}%")
+                        ->orWhere('l_name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('address', 'like', "%{$search}%")
+                        ->orWhere('course', 'like', "%{$search}%")
+                        ->orWhere('year', 'like', "%{$search}%");
+                });
+            })
+            ->latest('id')
+            ->get();
+
+        $studentCount = studentmodel::count();
+
+        return view('student', compact('students', 'editStudent', 'studentCount', 'search'));
     }
 
     public function update(Request $request, string $id)
@@ -68,10 +88,10 @@ class StudentController extends Controller
 
         $student->update($validated);
 
-        return redirect()->route('student.page')->with('success', 'Student updated successfully.');
+        return redirect()->route('student.index')->with('success', 'Student updated successfully.');
     }
 
-    public function destroy(string $id)
+    public function destroy(Request $request, string $id)
     {
         $student = studentmodel::findOrFail($id);
 
@@ -81,7 +101,10 @@ class StudentController extends Controller
 
         $student->delete();
 
-        return redirect()->route('student.page')->with('success', 'Student deleted successfully.');
+        return redirect()->route('student.index', array_filter([
+            'search' => $request->input('search'),
+        ], static fn ($value) => $value !== null && $value !== ''))
+            ->with('success', 'Student deleted successfully.');
     }
 
     private function validateStudent(Request $request, bool $isCreate): array
