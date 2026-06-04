@@ -9,6 +9,16 @@
     </div>
 
     <div class="container">
+        <form action="{{ route('student.page') }}" method="get">
+            <input type="text" name="search" placeholder="Search students..." value="{{ $search ?? '' }}">
+            <button type="submit">Search</button>
+            @if (!empty($search))
+                <a href="{{ route('student.page') }}">Clear</a>
+            @endif
+        </form>
+    </div>
+
+    <div class="container">
         <h2>{{ isset($editStudent) ? 'Edit Student' : 'Add Student' }}</h2>
         <form action="{{ isset($editStudent) ? route('student.update', $editStudent->id) : route('student.store') }}" method="post" enctype="multipart/form-data">
             @csrf
@@ -46,7 +56,7 @@
 
             <button type="submit">{{ isset($editStudent) ? 'Update' : 'Submit' }}</button>
             @if (isset($editStudent))
-                <a href="{{ route('student.index') }}">Cancel</a>
+                <a href="{{ route('student.page') }}">Cancel</a>
             @endif
         </form>
     </div>
@@ -95,7 +105,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="10">No students found.</td>
+                    <td colspan="10">{{ !empty($search) ? 'No students matched your search.' : 'No students found.' }}</td>
                 </tr>
             @endforelse
         </tbody>
