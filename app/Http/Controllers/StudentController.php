@@ -8,11 +8,28 @@ use Illuminate\Support\Facades\Storage;
 
 class StudentController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $students = studentmodel::all();
+        $search = trim((string) $request->query('search', ''));
 
-        return view('student', compact('students'));
+        $students = studentmodel::query()
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($innerQuery) use ($search) {
+                    $innerQuery->where('student_id', 'like', "%{$search}%")
+                        ->orWhere('f_name', 'like', "%{$search}%")
+                        ->orWhere('l_name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('course', 'like', "%{$search}%")
+                        ->orWhere('year', 'like', "%{$search}%");
+                });
+            })
+            ->latest('id')
+            ->get();
+
+        $studentCount = studentmodel::count();
+
+        return view('student', compact('students', 'studentCount', 'search'));
     }
 
     public function store(Request $request)
@@ -25,12 +42,29 @@ class StudentController extends Controller
         return redirect()->route('student.index')->with('success', 'Student added successfully.');
     }
 
-    public function edit(string $id)
+    public function edit(Request $request, string $id)
     {
         $editStudent = studentmodel::findOrFail($id);
-        $students = studentmodel::all();
+        $search = trim((string) $request->query('search', ''));
 
-        return view('student', compact('students', 'editStudent'));
+        $students = studentmodel::query()
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($innerQuery) use ($search) {
+                    $innerQuery->where('student_id', 'like', "%{$search}%")
+                        ->orWhere('f_name', 'like', "%{$search}%")
+                        ->orWhere('l_name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('course', 'like', "%{$search}%")
+                        ->orWhere('year', 'like', "%{$search}%");
+                });
+            })
+            ->latest('id')
+            ->get();
+
+        $studentCount = studentmodel::count();
+
+        return view('student', compact('students', 'editStudent', 'studentCount', 'search'));
     }
 
     public function update(Request $request, string $id)
@@ -52,7 +86,7 @@ class StudentController extends Controller
         return redirect()->route('student.index')->with('success', 'Student updated successfully.');
     }
 
-    public function destroy(string $id)
+    public function destroy(Request $request, string $id)
     {
         $student = studentmodel::findOrFail($id);
 
@@ -62,7 +96,10 @@ class StudentController extends Controller
 
         $student->delete();
 
-        return redirect()->route('student.index')->with('success', 'Student deleted successfully.');
+        return redirect()->route('student.index', array_filter([
+            'search' => $request->input('search'),
+        ], static fn ($value) => $value !== null && $value !== ''))
+            ->with('success', 'Student deleted successfully.');
     }
 
     private function validateStudent(Request $request, bool $isCreate): array
